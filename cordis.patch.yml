@@ -1,0 +1,39 @@
+# dsh-agent-commander — 指挥本机智能体干活（Qoder CN / WorkBuddy / …）
+#
+# 一行为主：agent-commander。所有可调项都在插件的设置页里改，也可以直接改这里。
+#
+# 设计要点：
+#   - 每个智能体是一个 adapter；首批 qoder-cn、workbuddy，后续豆包/千问按同一接口加。
+#   - 派活 = 起一个无头进程跑任务，进度按行流式上报；同时把完整轨迹落到数据目录。
+#   - 验收 = 独立工具 agent_verify，用文件/命令/git 证据判断，不听智能体的自述。
+- insert:
+    - id: agent-commander
+      name: 'dsh-agent-commander'
+      config:
+        # 默认派活给谁（agent_dispatch 不传 agent 时用它）
+        defaultAgent: qoder-cn
+        # 单个任务的最长运行时间；超时会先 SIGTERM，再宽限 graceMs 后强杀
+        timeoutMs: 1800000
+        graceMs: 5000
+        # 每轮喂回给模型的最大字节数，超出部分落盘并在摘要里标注截断
+        maxEventBytes: 120000
+        # 并发上限：同时跑的派活数
+        maxConcurrent: 3
+        # 是否在任务结束后自动跑一次验收（文件类证据）
+        autoVerify: true
+        adapters:
+          qoder-cn:
+            enabled: true
+            # 留空则自动探测（~/.qoder-cn/bin/qoderclicn/qoderclicn.exe）
+            binary: ''
+            # 权限模式：bypass_permissions 才能无人值守改文件；dont_ask 会静默拒绝写入
+            permissionMode: bypass_permissions
+            model: ''
+            # 允许智能体自己动文件的工作目录白名单（留空 = 不额外限制，仅靠 DSH 沙箱）
+            allowedCwd: []
+          workbuddy:
+            enabled: true
+            binary: ''
+            permissionMode: bypass_permissions
+            model: ''
+            allowedCwd: []

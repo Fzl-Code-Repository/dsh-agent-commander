@@ -1,0 +1,50 @@
+{
+  "name": "dsh-agent-commander",
+  "version": "0.1.0",
+  "description": "Command local AI agents (Qoder CN, WorkBuddy, and more) from DeepSeek Harness: dispatch a task, stream progress, then verify acceptance with concrete evidence.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent",
+    "orchestration",
+    "qoder",
+    "workbuddy",
+    "codebuddy"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fzl-Code-Repository/dsh-agent-commander.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Fzl-Code-Repository/dsh-agent-commander/issues"
+  },
+  "homepage": "https://github.com/Fzl-Code-Repository/dsh-agent-commander#readme",
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
