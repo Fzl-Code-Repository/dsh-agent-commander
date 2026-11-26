@@ -239,6 +239,11 @@ function emptyFor(toolName) {
       return { ok: true, passed: 0, total: 0, cwd: '', results: [], changes: [], note: '' }
     case 'agent_cancel':
       return { taskId: 't', cancelled: true, message: '' }
+    case 'agent_login':
+      return {
+        agent: 'workbuddy', action: 'start', ok: false, authUrl: '', state: '',
+        savedTo: '', account: '', message: '',
+      }
     default:
       return {}
   }

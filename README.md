@@ -17,9 +17,23 @@
 | 智能体 | 驱动方式 | 状态 |
 | --- | --- | --- |
 | **Qoder CN** | `qoderclicn` 无头模式（`-p --output-format stream-json`） | ✅ 已实测跑通 |
-| **WorkBuddy** | 桌面端自带 `codebuddy` CLI（`resources/app.asar.unpacked/cli/bin/codebuddy`） | ⚙️ 已接通，需登录 |
+| **WorkBuddy** | 桌面端自带 `codebuddy` CLI（`resources/app.asar.unpacked/cli/bin/codebuddy`） | ⚙️ 已接通，用 `agent_login` 登录后可用 |
 
 设计上适配器是插槽式的：豆包、千问等后续按同一接口加，不改工具层。
+
+## 实测记录
+
+一次真实的委派，全程没人工介入：
+
+```
+agent_dispatch({ agent: "qoder-cn", cwd: "D:/proj", prompt: "做一个单文件科技感网页" })
+  → succeeded · 10m47s · 48 轮 · 47 个动作
+  → Write index.html(52KB) + 8 次 Edit + node --check + 无头 Chrome 截图自查
+agent_verify → 文件 50.9KB ✓ · 零外链 ✓ · canvas / RAF / 响应式 / 标题 ✓
+```
+
+值得注意的是它**自己起了无头 Chrome 截图**看过效果，回头又改了 8 次 —— 这些动作都能在
+`agent_trace` 里逐条查到，不必相信它的一句「完成了」。
 
 ## 安装
 
@@ -41,7 +55,7 @@
 
 `cordis.patch.yml` 已带一份可用默认配置，无需额外设置就能用。
 
-## 七个工具
+## 八个工具
 
 | 工具 | 干什么 |
 | --- | --- |
@@ -52,6 +66,7 @@
 | `agent_trace` | 看完整轨迹（分页），需要查它到底跑了什么命令时用 |
 | `agent_verify` | **用证据验收**：文件 / 命令 / git / 目录 |
 | `agent_cancel` | 取消还在跑的任务 |
+| `agent_login` | 给需要授权的智能体做登录（目前只有 WorkBuddy 需要） |
 
 ### 典型用法
 
@@ -112,6 +127,21 @@ Expected 'stdio' | 'sse' | 'http' | 'ws' | 'streamable-http', received 'streamab
 来自 `~/.qoder-cn/settings.json` 里 `type` 拼写不合法。不影响干活，插件会把它归到 `notice`，不进摘要。
 
 **WorkBuddy 需要先登录。** 未登录时 CLI 返回 `401 Authentication required`，任务会被标成 failed 并带上原文。
+登录用 `agent_login`：它自己走一遍设备码流程（`POST /v2/plugin/auth/state?platform=CLI` 拿链接 → 你在浏览器里登录 → 轮询 token），
+成功后把 token 写进 `~/.codebuddy/settings.json` 的 `env.CODEBUDDY_AUTH_TOKEN`，之后派活直接可用。
+
+**Qoder CN 的 Bash 工具在本机会失败**：
+
+```
+qoder-bash-owner: line 1: /proc/<pid>/winpid: No such file or directory
+Could not record Windows Bash process identity
+```
+
+命令根本没执行。它自己会退到 Glob/Read/Write 把活干完（实测如此），所以功能不受影响 ——
+但别指望它用 Bash 跑测试，验收条件也别只依赖它跑命令。
+
+**它对 `cwd` 很挑。** 目录不存在时 spawn 报的却是 `spawn <cli 路径> ENOENT`，
+极易误判成「CLI 没装」。本插件会先 `mkdir -p` 工作目录，并在失败时明确说是目录问题。
 
 ## 配置
 
@@ -168,6 +198,16 @@ export function createMyAdapter(config, globalConfig) {
 ```
 
 然后在 `index.js` 里 `adapters.register(...)`。如果那个 CLI 也是 Claude Code 系的，`parse` 直接用 `lib/adapters/claude-style.js` 里的 `parseClaudeStyleLine`。
+
+需要授权的那种，再额外实现两个方法（可选）：
+
+```js
+async login(options) { /* → { authUrl, state, cancel(), waitFor() } */ },
+async logout() { /* 清掉本地凭据 */ },
+```
+
+`waitFor()` 成功后应当自己把 token 存到该 CLI 认的位置，这样后续派活就不用再管它。
+`lib/adapters/codebuddy-auth.js` 是一个完整的设备码流程参考实现。
 
 ## License
 
