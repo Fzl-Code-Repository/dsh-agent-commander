@@ -1,7 +1,7 @@
 {
   "name": "dsh-agent-commander",
-  "version": "0.1.0",
-  "description": "Command local AI agents (Qoder CN, WorkBuddy, and more) from DeepSeek Harness: dispatch a task, stream progress, then verify acceptance with concrete evidence.",
+  "version": "0.2.0",
+  "description": "指挥本机智能体（Qoder CN / WorkBuddy）干活的 DSH 插件：派活、看进度、验收一条龙。支持无头 CLI 与桌面 GUI 两条通道。",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -23,6 +23,7 @@
   "files": [
     "index.js",
     "lib",
+    "scripts",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"

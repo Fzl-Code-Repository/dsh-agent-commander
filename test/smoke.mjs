@@ -223,15 +223,15 @@ function emptyFor(toolName) {
     case 'agent_list':
       return { adapters: [], defaultAgent: 'qoder-cn' }
     case 'agent_dispatch':
-      return { taskId: 't', agent: 'qoder-cn', status: 'queued', queued: false, dir: '/tmp/t', message: '' }
+      return { taskId: 't', agent: 'qoder-cn', channel: 'cli', status: 'queued', queued: false, dir: '/tmp/t', message: '' }
     case 'agent_status':
       return { tasks: [], running: 0, queued: 0 }
     case 'agent_report':
       // 这里的空值形态必须与 schema 声明的类型一致：DSH 的输出校验器不接受 null
       return {
-        taskId: 't', agent: 'qoder-cn', status: 'queued', label: '', cwd: '', durationMs: 0,
-        sessionId: '', numTurns: 0, summary: '', error: '', toolCalls: [], lastWords: '',
-        denials: [], eventCount: 0, stillRunning: true,
+        taskId: 't', agent: 'qoder-cn', channel: 'cli', status: 'queued', label: '', cwd: '', durationMs: 0,
+        sessionId: '', numTurns: 0, summary: '', error: '', screenshot: '', guiSessionFile: '',
+        toolCalls: [], lastWords: '', denials: [], eventCount: 0, stillRunning: true,
       }
     case 'agent_trace':
       return { taskId: 't', fromIndex: 0, total: 0, nextIndex: 0, lines: [] }

@@ -16,10 +16,40 @@
 
 | 智能体 | 驱动方式 | 状态 |
 | --- | --- | --- |
-| **Qoder CN** | `qoderclicn` 无头模式（`-p --output-format stream-json`） | ✅ 已实测跑通 |
+| **Qoder CN**（CLI 通道） | `qoderclicn` 无头模式（`-p --output-format stream-json`） | ✅ 已实测跑通 |
+| **Qoder CN**（桌面通道） | 驱动桌面 GUI：窗口前台化 → `Ctrl+N` → 剪贴板粘贴 → `Enter` | ✅ 已实测跑通 |
 | **WorkBuddy** | 桌面端自带 `codebuddy` CLI（`resources/app.asar.unpacked/cli/bin/codebuddy`） | ⚙️ 已接通，用 `agent_login` 登录后可用 |
 
 设计上适配器是插槽式的：豆包、千问等后续按同一接口加，不改工具层。
+
+### 两条通道怎么选
+
+Qoder CN 有两条完全不同的通道，用 `agent_dispatch` 的 `channel` 参数选：
+
+| | `channel: "cli"`（默认） | `channel: "desktop"` |
+| --- | --- | --- |
+| 跑在哪 | 后台无头进程 | 用户桌面上的 Qoder CN 窗口 |
+| 用户看得见吗 | ❌ 什么都看不到 | ✅ 任务、执行过程、回复都在窗口里，还能接着手动对话 |
+| 拿得到结构化结果吗 | ✅ 事件流、退出码、会话 id、轮次 | ❌ 只有「投递成功」+ 截图 + 会话文件路径 |
+| 能并行吗 | ✅ | ❌ 必须串行（会抢前台焦点） |
+| 适合 | 批量干活、要程序化验收 | 用户要看着他干活、要人工接手 |
+
+**为什么桌面通道只能靠模拟操作**：桌面 GUI 既不写 `local.db`（`chat_session` 表在跑了三次任务后仍是 143 行、
+mtime 不动），也没暴露本地投递端口（`127.0.0.1:3674` 有 HTTP 服务但探了 19 个路径全是 404）。
+它的会话其实写 `~/.qoder-cn/projects/<路径转连字符>/<uuid>.jsonl` —— 复用 CLI 那套会话引擎，
+所以「往数据库插一条记录让 GUI 显示会话」这条路从根上不成立。
+
+### 实测记录（桌面通道）
+
+宿主里真跑的一单，用户能在窗口里看到全过程：
+
+```
+agent_dispatch({ agent: "qoder-cn", channel: "desktop", prompt: "...包含 DESKTOP-CHANNEL-OK..." })
+  → succeeded · 20s
+  → GUI 会话文件：~/.qoder-cn/projects/C--Users-.../452aed9c-....jsonl
+  → 投递截图：~/.dsh/qoder-desktop-shots/result-20261128-174055.png
+桌面窗口里：任务原文 ✓ · Qoder 回复「我收到了…DESKTOP-CHANNEL-OK」✓ · 左侧「最近任务」新增该会话 ✓
+```
 
 ## 实测记录
 
