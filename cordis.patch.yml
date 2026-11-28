@@ -37,3 +37,11 @@
             permissionMode: bypass_permissions
             model: ''
             allowedCwd: []
+        # 网页控制台：派活 / 看轨迹 / 点验收，不用回对话框
+        console:
+          # 关掉只是不提供网页，agent_* 工具照常可用
+          enabled: true
+          # 被占用时自动往后找空端口（最多试 40 个）
+          port: 4790
+          # 列表里显示多少个最近任务
+          recentTasks: 30

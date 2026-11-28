@@ -161,8 +161,52 @@ async function main() {
     assert(verified.ok, '验收应当通过')
   }
 
+  console.log(`== ${live ? 8 : 7}. 控制台`)
+  // 控制台开在 config.console.port 起第一个空闲端口；冒烟测试里直接按
+  // 「页面能出来 + 接口形状对」判断，不依赖具体端口号。
+  const consoleUrl = await waitForConsole(dataDir)
+  assert(consoleUrl !== null, '控制台应该能起来（apply() 里自动启动）')
+  const page = await fetch(consoleUrl)
+  const html = await page.text()
+  assert(page.status === 200, `控制台首页应当是 200，实际 ${page.status}`)
+  assert((page.headers.get('content-type') ?? '').includes('text/html'), '控制台首页应当是 HTML')
+  assert(html.includes('智能体控制台'), '控制台首页应当有标题')
+  const overview = await (await fetch(consoleUrl + 'api/overview')).json()
+  assert(Array.isArray(overview.agents) && overview.agents.length > 0, '概览要列出适配器')
+  assert(typeof overview.stats?.running === 'number', '概览要给出并发状态')
+  assert(Array.isArray(overview.tasks), '概览要给出任务列表')
+  const missing = await fetch(consoleUrl + 'api/tasks/根本不存在的任务')
+  assert(missing.status === 404, `不存在的任务应当 404，实际 ${missing.status}`)
+  const noPrompt = await fetch(consoleUrl + 'api/dispatch', { method: 'POST', body: '{}' })
+  assert(noPrompt.status === 400, `缺 prompt 应当 400，实际 ${noPrompt.status}`)
+  console.log(`   ✓ 控制台 ${consoleUrl} 首页 ${html.length} B、${overview.agents.length} 个适配器、边界情况回 404/400`)
+
   rmSync(workDir, { recursive: true, force: true })
   console.log('\n全部通过。')
+}
+
+/**
+ * 等控制台起来：apply() 里是异步启动的，而且 /api/overview 要真去探活
+ * （qoder-cn 的 probe() 会 spawn 一次 CLI 查版本，冷启动要一两秒），
+ * 所以给足重试窗口，别一次没命中就断言失败。
+ */
+async function waitForConsole() {
+  const deadline = Date.now() + 20000
+  while (Date.now() < deadline) {
+    for (let port = 4790; port < 4830; port += 1) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/overview`, { signal: AbortSignal.timeout(6000) })
+        if (res.ok) {
+          const body = await res.json()
+          if (Array.isArray(body.agents)) return `http://127.0.0.1:${port}/`
+        }
+      } catch {
+        // 端口上没人，或者探活还没回，试下一个
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300))
+  }
+  return null
 }
 
 /**

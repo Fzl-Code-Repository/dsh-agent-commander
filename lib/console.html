@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智能体控制台 · dsh-agent-commander</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #141821;
+    --panel-2: #1a1f2b;
+    --line: #232935;
+    --line-2: #2e3543;
+    --text: #e6e9f0;
+    --dim: #8b93a7;
+    --dim-2: #626b80;
+    --accent: #35e0d8;
+    --accent-2: #8b5cf6;
+    --ok: #3ddc97;
+    --warn: #f4b740;
+    --bad: #ff5c6c;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── 顶栏 ─────────────────────────────────────────── */
+  .top {
+    height: 56px; display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #10141c, #0b0d12);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: .2px; }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 10px var(--accent);
+  }
+  .brand small { color: var(--dim-2); font-weight: 400; font-size: 12px; letter-spacing: 0; }
+  .top .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px; font-size: 12px;
+    background: var(--panel-2); border: 1px solid var(--line-2); color: var(--dim);
+  }
+  .pill b { color: var(--text); font-weight: 600; }
+
+  /* ── 布局 ─────────────────────────────────────────── */
+  .wrap { display: grid; grid-template-columns: 336px minmax(0, 1fr); gap: 0; height: calc(100vh - 56px); }
+  .side {
+    border-right: 1px solid var(--line); overflow-y: auto;
+    padding: 16px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .main { overflow-y: auto; padding: 16px 18px 40px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px;
+  }
+  .card > h3 {
+    margin: 0 0 10px; font-size: 12px; letter-spacing: .7px;
+    text-transform: uppercase; color: var(--dim-2); font-weight: 600;
+  }
+
+  /* ── 智能体卡 ─────────────────────────────────────── */
+  .agent { display: flex; flex-direction: column; gap: 3px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .agent:first-of-type { border-top: 0; padding-top: 0; }
+  .agent .row1 { display: flex; align-items: center; gap: 8px; }
+  .agent .nm { font-weight: 600; }
+  .agent .meta { color: var(--dim-2); font-size: 12px; font-family: var(--mono); }
+  .badge {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge.on { color: var(--ok); background: rgba(61,220,151,.10); border-color: rgba(61,220,151,.28); }
+  .badge.off { color: var(--dim-2); background: rgba(139,147,167,.08); border-color: rgba(139,147,167,.22); }
+  .badge.warn { color: var(--warn); background: rgba(244,183,64,.10); border-color: rgba(244,183,64,.28); }
+
+  /* ── 表单 ─────────────────────────────────────────── */
+  label.fld { display: block; margin-bottom: 10px; }
+  label.fld > span { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; background: #0e121a; border: 1px solid var(--line-2);
+    border-radius: 8px; padding: 8px 10px; outline: none;
+    transition: border-color .14s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 92px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { color: var(--dim-2); font-size: 11.5px; margin-top: -6px; margin-bottom: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line-2);
+    background: var(--panel-2); cursor: pointer; transition: all .14s; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary {
+    background: linear-gradient(135deg, rgba(53,224,216,.16), rgba(139,92,246,.16));
+    border-color: rgba(53,224,216,.42); color: var(--accent); font-weight: 600;
+  }
+  .btn.primary:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(53,224,216,.10); }
+  .btn.sm { padding: 4px 9px; font-size: 12px; border-radius: 6px; }
+  .btn.wide { width: 100%; }
+
+  /* ── 任务列表 ─────────────────────────────────────── */
+  .list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .list-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+  .list-head .spacer { flex: 1; }
+  .empty { color: var(--dim-2); text-align: center; padding: 44px 16px; font-size: 13px; }
+
+  .task {
+    display: grid; grid-template-columns: 8px minmax(0,1fr) auto;
+    gap: 12px; align-items: center;
+    padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); margin-bottom: 8px; cursor: pointer;
+    transition: border-color .14s, background .14s;
+  }
+  .task:hover { border-color: var(--line-2); background: var(--panel-2); }
+  .task.sel { border-color: rgba(53,224,216,.55); background: rgba(53,224,216,.055); }
+  .task .bar { width: 8px; height: 8px; border-radius: 50%; background: var(--dim-2); }
+  .task .bar.succeeded { background: var(--ok); }
+  .task .bar.failed, .task .bar.timeout { background: var(--bad); }
+  .task .bar.running { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+  .task .bar.queued { background: var(--warn); }
+  .task .bar.cancelled { background: var(--dim-2); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .task .t1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .task .lb { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task .t2 { color: var(--dim-2); font-size: 12px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task .t3 { text-align: right; color: var(--dim-2); font-size: 12px; font-family: var(--mono); white-space: nowrap; }
+
+  /* ── 详情 ─────────────────────────────────────────── */
+  .detail { margin-top: 16px; }
+  .kv { display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 4px 12px; font-size: 13px; }
+  .kv dt { color: var(--dim-2); }
+  .kv dd { margin: 0; word-break: break-all; font-family: var(--mono); font-size: 12.5px; }
+  .kb { font-family: var(--mono); }
+  .prompt-box {
+    background: #0e121a; border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 10px 12px; white-space: pre-wrap; word-break: break-word;
+    font-family: var(--mono); font-size: 12.5px; max-height: 260px; overflow-y: auto;
+  }
+  .events {
+    background: #0a0d13; border: 1px solid var(--line-2); border-radius: 8px;
+    max-height: 460px; overflow-y: auto; padding: 8px 0;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+  }
+  .ev { padding: 3px 12px; border-left: 2px solid transparent; display: grid; grid-template-columns: 62px 66px minmax(0,1fr); gap: 8px; }
+  .ev:hover { background: rgba(255,255,255,.025); }
+  .ev .n { color: var(--dim-2); }
+  .ev .k { color: var(--accent-2); }
+  .ev .k.tool { color: var(--accent); }
+  .ev .k.say { color: var(--ok); }
+  .ev .k.error { color: var(--bad); }
+  .ev .v { white-space: pre-wrap; word-break: break-word; }
+  .chk { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .chk:first-child { border-top: 0; }
+  .chk .mk { flex: none; font-weight: 700; }
+  .chk .ok { color: var(--ok); }
+  .chk .no { color: var(--bad); }
+  .chk .desc { min-width: 0; }
+  .chk .desc small { display: block; color: var(--dim-2); font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+    background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 9px;
+    padding: 10px 16px; font-size: 13px; opacity: 0; pointer-events: none;
+    transition: opacity .18s, transform .18s; z-index: 100; max-width: min(560px, 90vw);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.bad { border-color: rgba(255,92,108,.5); color: #ffb3ba; }
+
+  @media (max-width: 980px) {
+    .wrap { grid-template-columns: 1fr; height: auto; }
+    .side { border-right: 0; border-bottom: 1px solid var(--line); }
+    .main { padding-bottom: 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="brand"><span class="dot"></span>智能体控制台 <small>dsh-agent-commander</small></div>
+  <div class="spacer"></div>
+  <span class="pill" id="statRunning">运行 <b>—</b></span>
+  <span class="pill" id="statQueued">排队 <b>—</b></span>
+  <button class="btn sm" id="btnRefresh">刷新</button>
+</div>
+
+<div class="wrap">
+  <aside class="side">
+    <div class="card">
+      <h3>能指挥谁</h3>
+      <div id="agents"><div class="empty">探活中…</div></div>
+    </div>
+
+    <div class="card">
+      <h3>派活</h3>
+      <label class="fld">
+        <span>派给谁</span>
+        <select id="fAgent"></select>
+      </label>
+      <label class="fld">
+        <span>通道</span>
+        <select id="fChannel">
+          <option value="cli">CLI · 后台跑，拿得到结构化结果</option>
+          <option value="desktop">桌面 · 投进可见的 Qoder CN 窗口</option>
+        </select>
+      </label>
+      <label class="fld">
+        <span>干活的目录</span>
+        <input type="text" id="fCwd" placeholder="留空 = 当前目录">
+      </label>
+      <label class="fld">
+        <span>要它做什么</span>
+        <textarea id="fPrompt" placeholder="写清楚三件事：改哪个绝对路径、验收标准是什么、只做这一件事。"></textarea>
+      </label>
+      <div class="row2">
+        <label class="fld">
+          <span>模型（可空）</span>
+          <input type="text" id="fModel" placeholder="默认">
+        </label>
+        <label class="fld">
+          <span>标签（可空）</span>
+          <input type="text" id="fLabel" placeholder="列表里认得出的名字">
+        </label>
+      </div>
+      <button class="btn primary wide" id="btnDispatch">派出去</button>
+      <div class="hint" style="margin-top:10px;margin-bottom:0">
+        派活立刻返回，不阻塞。跑完到列表里点开看轨迹、点「验收」看证据。
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="list-head">
+      <h2>任务</h2>
+      <span class="pill" id="taskCount">—</span>
+      <div class="spacer"></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)">
+        <input type="checkbox" id="autoRefresh" checked style="width:auto"> 自动刷新
+      </label>
+    </div>
+    <div id="tasks"><div class="empty">还没有任务。左边派一单试试。</div></div>
+    <div id="detail"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const STATUS_TEXT = {
+  queued: '排队', running: '运行中', succeeded: '已完成',
+  failed: '失败', timeout: '超时', cancelled: '已取消',
+};
+const state = { agents: [], tasks: [], selected: null, detailTimer: null, agentsLoaded: false };
+
+function toast(msg, bad = false) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.toggle('bad', bad);
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), bad ? 4200 : 2600);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: opts.body ? { 'content-type': 'application/json' } : undefined,
+  });
+  const text = await res.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = { raw: text }; }
+  if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+  return body;
+}
+
+const fmtDur = (ms) => {
+  const n = Number(ms) || 0;
+  if (n < 1000) return n + 'ms';
+  const s = Math.round(n / 1000);
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60);
+  return m + 'm' + String(s % 60).padStart(2, '0') + 's';
+};
+const fmtTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+/* ── 概览 ───────────────────────────────────────────── */
+function renderAgents(list) {
+  const box = $('#agents');
+  box.textContent = '';
+  if (!list.length) { box.append(el('div', 'empty')).textContent = '没有可用适配器'; return; }
+  for (const a of list) {
+    const wrap = el('div', 'agent');
+    const row1 = el('div', 'row1');
+    const nm = el('span', 'nm'); nm.textContent = a.label;
+    row1.append(nm);
+    const b = el('span', 'badge');
+    if (!a.available) { b.classList.add('off'); b.textContent = '未安装'; }
+    else if (!a.loggedIn) { b.classList.add('warn'); b.textContent = '未登录'; }
+    else { b.classList.add('on'); b.textContent = '可用'; }
+    row1.append(b);
+    if (a.supportsDesktop) {
+      const d = el('span', 'badge on'); d.textContent = '支持桌面'; row1.append(d);
+    }
+    wrap.append(row1);
+    const meta = el('div', 'meta');
+    meta.textContent = [a.version && 'v' + a.version, a.binary && a.binary.split(/[\\/]/).pop()].filter(Boolean).join(' · ') || a.detail || '';
+    wrap.append(meta);
+    if (a.detail && a.detail !== meta.textContent) {
+      const det = el('div', 'meta'); det.style.color = 'var(--dim-2)'; det.textContent = a.detail; wrap.append(det);
+    }
+    box.append(wrap);
+  }
+}
+
+function renderAgentSelect(list, defaultAgent) {
+  const sel = $('#fAgent');
+  const prev = sel.value;
+  sel.textContent = '';
+  for (const a of list) {
+    const o = el('option');
+    o.value = a.id;
+    o.textContent = a.label + (a.available ? '' : '（未安装）');
+    o.disabled = !a.available;
+    sel.append(o);
+  }
+  const keep = prev && list.some((a) => a.id === prev) ? prev : defaultAgent;
+  if (keep) sel.value = keep;
+  syncChannelOptions();
+}
+
+function syncChannelOptions() {
+  const agentId = $('#fAgent').value;
+  const a = state.agents.find((x) => x.id === agentId);
+  const desktopOpt = $('#fChannel').querySelector('option[value="desktop"]');
+  const supported = a?.supportsDesktop === true;
+  desktopOpt.disabled = !supported;
+  desktopOpt.textContent = supported
+    ? '桌面 · 投进可见的 Qoder CN 窗口'
+    : '桌面 · 这个智能体不支持';
+  if (!supported) $('#fChannel').value = 'cli';
+}
+
+function renderStats(stats) {
+  $('#statRunning').innerHTML = `运行 <b>${stats.running}</b> / ${stats.maxConcurrent}`;
+  $('#statQueued').innerHTML = `排队 <b>${stats.queued}</b>`;
+}
+
+/* ── 任务列表 ───────────────────────────────────────── */
+function renderTasks(tasks) {
+  const box = $('#tasks');
+  box.textContent = '';
+  if (!tasks.length) {
+    box.append(el('div', 'empty')).textContent = '还没有任务。左边派一单试试。';
+    $('#taskCount').textContent = '0';
+    return;
+  }
+  $('#taskCount').textContent = tasks.length + ' 单';
+  for (const t of tasks) {
+    const row = el('div', 'task' + (state.selected === t.id ? ' sel' : ''));
+    row.dataset.id = t.id;
+    const bar = el('div', 'bar ' + t.status);
+    const mid = el('div');
+    const t1 = el('div', 't1');
+    const lb = el('span', 'lb'); lb.textContent = t.label || t.prompt.slice(0, 60);
+    t1.append(lb);
+    const st = el('span', 'badge ' + (t.status === 'succeeded' ? 'on' : (t.status === 'failed' || t.status === 'timeout') ? 'off' : 'warn'));
+    st.textContent = STATUS_TEXT[t.status] ?? t.status;
+    t1.append(st);
+    if (t.channel === 'desktop') { const c = el('span', 'badge warn'); c.textContent = '桌面'; t1.append(c); }
+    mid.append(t1);
+    const t2 = el('div', 't2');
+    t2.textContent = `${t.agent} · ${t.channel} · ${t.cwd}`;
+    mid.append(t2);
+    const t3 = el('div', 't3');
+    t3.textContent = [t.status === 'running' ? '运行中' : fmtDur(t.durationMs), fmtTime(t.createdAt)].filter(Boolean).join(' · ');
+    row.append(bar, mid, t3);
+    row.addEventListener('click', () => selectTask(t.id));
+    box.append(row);
+  }
+}
+
+/* ── 详情 ───────────────────────────────────────────── */
+async function selectTask(id) {
+  state.selected = id;
+  for (const r of document.querySelectorAll('.task')) r.classList.toggle('sel', r.dataset.id === id);
+  await loadDetail(true);
+  clearInterval(state.detailTimer);
+  // 只有还在跑的任务才值得轮询；跑完的不会再有新事件
+  const t = state.tasks.find((x) => x.id === id);
+  if (t && (t.status === 'running' || t.status === 'queued')) {
+    state.detailTimer = setInterval(() => { loadDetail(false); }, 2000);
+  }
+}
+
+async function loadDetail(scroll) {
+  const id = state.selected;
+  if (!id) return;
+  let meta, ev;
+  try {
+    [meta, ev] = await Promise.all([
+      api('/api/tasks/' + encodeURIComponent(id)),
+      api('/api/tasks/' + encodeURIComponent(id) + '/events?limit=400'),
+    ]);
+  } catch (e) {
+    toast('读任务失败：' + e.message, true);
+    return;
+  }
+
+  const box = $('#detail');
+  box.textContent = '';
+  const card = el('div', 'card detail');
+
+  const h = el('div', 'list-head');
+  h.append(el('h2'));
+  h.querySelector('h2').textContent = meta.label || '任务详情';
+  h.append(el('span', 'pill'));
+  h.querySelector('.pill:last-child').textContent = STATUS_TEXT[meta.status] ?? meta.status;
+  const sp = el('div', 'spacer'); h.append(sp);
+  if (meta.status === 'running' || meta.status === 'queued') {
+    const c = el('button', 'btn sm'); c.textContent = '取消';
+    c.addEventListener('click', async () => {
+      c.disabled = true;
+      try { await api('/api/tasks/' + encodeURIComponent(id) + '/cancel', { method: 'POST' }); toast('已请求取消'); await refresh(); }
+      catch (e) { toast('取消失败：' + e.message, true); c.disabled = false; }
+    });
+    h.append(c);
+  }
+  const v = el('button', 'btn sm'); v.textContent = '验收';
+  v.disabled = !meta.hasVerify && meta.status !== 'succeeded';
+  v.addEventListener('click', async () => {
+    v.disabled = true; v.textContent = '验收中…';
+    try {
+      const r = await api('/api/tasks/' + encodeURIComponent(id) + '/verify', { method: 'POST', body: '{}' });
+      renderVerify(r);
+      toast(r.total === 0 ? '这单没写验收条款，只能给旁证' : (r.ok ? `验收通过 ${r.passed}/${r.total}` : `验收未过（${r.passed}/${r.total}）`), !r.ok && r.total > 0);
+    } catch (e) { toast('验收失败：' + e.message, true); }
+    v.disabled = false; v.textContent = '验收';
+  });
+  h.append(v);
+  card.append(h);
+
+  // 元信息
+  const kv = el('dl', 'kv');
+  const put = (k, val) => {
+    if (val === '' || val === undefined || val === null) return;
+    const dt = el('dt'); dt.textContent = k;
+    const dd = el('dd'); dd.textContent = val;
+    kv.append(dt, dd);
+  };
+  put('任务 id', meta.id);
+  put('智能体', meta.agent + ' · ' + meta.channel);
+  put('目录', meta.cwd);
+  put('模型', meta.model);
+  put('创建', fmtTime(meta.createdAt));
+  if (meta.durationMs > 0) put('耗时', fmtDur(meta.durationMs));
+  if (meta.numTurns > 0) put('轮次', String(meta.numTurns));
+  if (meta.sessionId) put('会话', meta.sessionId);
+  if (meta.error) put('错误', meta.error);
+  if (meta.screenshot) put('截图', meta.screenshot);
+  if (meta.guiSessionFile) put('GUI 会话', meta.guiSessionFile);
+  card.append(kv);
+
+  if (meta.summary) {
+    const s = el('div'); s.style.marginTop = '12px';
+    s.append(el('h3'));
+    s.querySelector('h3').textContent = '结论';
+    s.querySelector('h3').style.cssText = 'margin:0 0 6px;font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--dim-2)';
+    const b = el('div', 'prompt-box'); b.style.maxHeight = '160px'; b.textContent = meta.summary;
+    s.append(b); card.append(s);
+  }
+
+  const p = el('div'); p.style.marginTop = '12px';
+  p.append(el('h3'));
+  p.querySelector('h3').textContent = '派给它的原话';
+  p.querySelector('h3').style.cssText = 'margin:0 0 6px;font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--dim-2)';
+  const pb = el('div', 'prompt-box'); pb.textContent = meta.prompt;
+  p.append(pb); card.append(p);
+
+  const e = el('div'); e.style.marginTop = '12px';
+  const eh = el('div', 'list-head');
+  eh.append(el('h3'));
+  eh.querySelector('h3').textContent = `轨迹（${ev.total} 条）`;
+  eh.querySelector('h3').style.cssText = 'margin:0;font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--dim-2)';
+  e.append(eh);
+  const evBox = el('div', 'events'); evBox.id = 'events';
+  if (!ev.events.length) {
+    evBox.append(el('div', 'empty')).textContent = '还没有事件';
+  } else {
+    ev.events.forEach((one, i) => evBox.append(eventRow(one, i)));
+  }
+  e.append(evBox); card.append(e);
+
+  const vBox = el('div'); vBox.id = 'verifyBox'; vBox.style.marginTop = '12px';
+  card.append(vBox);
+  box.append(card);
+
+  // 自动滚到底：看正在跑的任务时，人想看的是最新那条
+  if (scroll !== false) evBox.scrollTop = evBox.scrollHeight;
+}
+
+function eventRow(one, index) {
+  const row = el('div', 'ev');
+  const n = el('span', 'n'); n.textContent = '#' + String(index + 1).padStart(3, '0');
+  const kind = one.kind ?? 'raw';
+  const k = el('span', 'k ' + kind); k.textContent = kind;
+  const v = el('span', 'v');
+  v.textContent = describeEvent(one);
+  if (one.kind === 'error' || one.ok === false) k.classList.add('error');
+  row.append(n, k, v);
+  return row;
+}
+
+function describeEvent(one) {
+  switch (one.kind) {
+    case 'spawn': return one.command ?? JSON.stringify(one);
+    case 'init': return [one.model && 'model=' + one.model, one.cwd && 'cwd=' + one.cwd, one.permissionMode && 'perm=' + one.permissionMode].filter(Boolean).join('  ');
+    case 'thinking': return one.text ?? '';
+    case 'say': return one.text ?? '';
+    case 'tool': return (one.name ?? '?') + '  ' + shortJson(one.input);
+    case 'tool_result': return (one.ok === false ? '✗ ' : '✓ ') + (one.text ?? '');
+    case 'usage':
+    case 'credits': return [one.total !== undefined && one.total + ' credits', one.contextRatio !== undefined && '上下文 ' + Math.round(one.contextRatio * 100) + '%'].filter(Boolean).join(' · ');
+    case 'notice': return one.text ?? '';
+    case 'log': return one.text ?? '';
+    case 'result': return [one.ok === false ? '失败' : '成功', one.numTurns && one.numTurns + ' 轮', one.durationMs && fmtDur(one.durationMs), one.summary].filter(Boolean).join(' · ');
+    case 'finish': return one.status ?? '';
+    case 'dispatch': return [one.agent, one.channel, one.cwd].filter(Boolean).join(' · ');
+    default: return one.text ?? shortJson(one);
+  }
+}
+
+function shortJson(v) {
+  if (v === undefined || v === null) return '';
+  let s;
+  try { s = typeof v === 'string' ? v : JSON.stringify(v); } catch { s = String(v); }
+  s = String(s).replace(/\s+/g, ' ');
+  return s.length > 320 ? s.slice(0, 320) + ' …' : s;
+}
+
+function renderVerify(r) {
+  const box = $('#verifyBox');
+  if (!box) return;
+  box.textContent = '';
+  const head = el('div', 'list-head');
+  const b = el('span', 'badge ' + (r.ok ? 'on' : 'warn'));
+  b.textContent = r.total > 0
+    ? (r.ok ? `全部通过 ${r.passed}/${r.total}` : `未过 ${r.passed}/${r.total}`)
+    : '没写验收条款';
+  head.append(el('h3'));
+  head.querySelector('h3').textContent = '验收证据';
+  head.querySelector('h3').style.cssText = 'margin:0;font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--dim-2)';
+  head.append(b);
+  box.append(head);
+
+  const card = el('div', 'card');
+  if (r.total === 0) {
+    // 无条款模式：只能给旁证，别假装这是「验收通过」
+    const p = el('div');
+    p.style.cssText = 'color:var(--dim);font-size:13px;margin-bottom:8px';
+    p.textContent = r.note ?? '这个任务没写验收条款。';
+    card.append(p);
+    for (const c of r.changes ?? []) {
+      const row = el('div', 'chk');
+      const mk = el('span', 'mk'); mk.textContent = '·'; mk.style.color = 'var(--dim-2)';
+      const d = el('div', 'desc');
+      d.textContent = c.path;
+      const s = el('small');
+      s.textContent = `${c.size} B · ${new Date(c.mtimeMs).toLocaleTimeString('zh-CN')}`;
+      d.append(s);
+      row.append(mk, d);
+      card.append(row);
+    }
+  } else {
+    for (const c of r.results ?? []) {
+      const row = el('div', 'chk');
+      const mk = el('span', 'mk ' + (c.ok ? 'ok' : 'no'));
+      mk.textContent = c.ok ? '✓' : '✗';
+      const d = el('div', 'desc');
+      d.textContent = c.name ?? c.kind ?? '';
+      const s = el('small');
+      s.textContent = [c.detail, c.error].filter(Boolean).join(' · ');
+      d.append(s);
+      row.append(mk, d);
+      card.append(row);
+    }
+  }
+  box.append(card);
+}
+
+/* ── 刷新 ───────────────────────────────────────────── */
+async function refresh() {
+  let data;
+  try { data = await api('/api/overview'); }
+  catch (e) { toast('连不上控制台后端：' + e.message, true); return; }
+
+  state.agents = data.agents;
+  state.tasks = data.tasks;
+  if (!state.agentsLoaded) {
+    renderAgentSelect(data.agents, data.defaultAgent);
+    state.agentsLoaded = true;
+  } else {
+    // 每次刷新重建选项会打断用户正在选的下拉；只在人数变了时重建
+    renderAgentSelectIfChanged(data.agents, data.defaultAgent);
+  }
+  renderAgents(data.agents);
+  renderStats(data.stats);
+  renderTasks(data.tasks);
+
+  // 选中的任务如果还在列表里，顺手更新一次性信息（不动事件流，避免闪烁）
+  if (state.selected) {
+    const t = state.tasks.find((x) => x.id === state.selected);
+    if (!t) { state.selected = null; $('#detail').textContent = ''; }
+    else if (!state.detailTimer && (t.status === 'running' || t.status === 'queued')) {
+      state.detailTimer = setInterval(() => loadDetail(false), 2000);
+    }
+  }
+}
+
+function renderAgentSelectIfChanged(list, defaultAgent) {
+  const sel = $('#fAgent');
+  const sig = list.map((a) => a.id + ':' + a.available).join('|');
+  if (sel.dataset.sig === sig) {
+    syncChannelOptions();
+    return;
+  }
+  sel.dataset.sig = sig;
+  renderAgentSelect(list, defaultAgent);
+}
+
+/* ── 派活 ───────────────────────────────────────────── */
+async function dispatch() {
+  const btn = $('#btnDispatch');
+  const prompt = $('#fPrompt').value.trim();
+  if (!prompt) { toast('先写要它做什么', true); $('#fPrompt').focus(); return; }
+  const body = {
+    agent: $('#fAgent').value,
+    channel: $('#fChannel').value,
+    prompt,
+    cwd: $('#fCwd').value.trim() || undefined,
+    model: $('#fModel').value.trim() || undefined,
+    label: $('#fLabel').value.trim() || undefined,
+  };
+  btn.disabled = true; btn.textContent = '派发中…';
+  try {
+    const r = await api('/api/dispatch', { method: 'POST', body: JSON.stringify(body) });
+    toast('已派出：' + r.taskId);
+    $('#fPrompt').value = '';
+    $('#fLabel').value = '';
+    await refresh();
+    selectTask(r.taskId);
+  } catch (e) {
+    toast('派活失败：' + e.message, true);
+  }
+  btn.disabled = false; btn.textContent = '派出去';
+}
+
+/* ── 启动 ───────────────────────────────────────────── */
+$('#btnRefresh').addEventListener('click', () => { refresh(); if (state.selected) loadDetail(false); });
+$('#btnDispatch').addEventListener('click', dispatch);
+$('#fAgent').addEventListener('change', syncChannelOptions);
+$('#fPrompt').addEventListener('keydown', (e) => {
+  // Ctrl/Cmd+Enter 提交，普通回车留给换行 —— 提示词经常是多行的
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); dispatch(); }
+});
+
+let poll = null;
+function setPolling(on) {
+  clearInterval(poll);
+  poll = on ? setInterval(refresh, 3000) : null;
+}
+$('#autoRefresh').addEventListener('change', (e) => setPolling(e.target.checked));
+
+refresh().then(() => setPolling($('#autoRefresh').checked));
+</script>
+</body>
+</html>

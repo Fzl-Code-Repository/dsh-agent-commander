@@ -23,6 +23,7 @@ import { createWorkBuddyAdapter } from './lib/adapters/workbuddy.js'
 import { SessionManager } from './lib/manager.js'
 import { createToolDefinitions } from './lib/tools.js'
 import { dataDir } from './lib/paths.js'
+import { startConsole } from './lib/console.js'
 
 export const name = 'agent-commander'
 export const inject = ['tools']
@@ -38,6 +39,7 @@ export const DEFAULT_CONFIG = {
     'qoder-cn': { enabled: true, binary: '', permissionMode: 'bypass_permissions', model: '', allowedCwd: [] },
     workbuddy: { enabled: true, binary: '', permissionMode: 'bypassPermissions', model: '', allowedCwd: [] },
   },
+  console: { enabled: true, port: 4790, recentTasks: 30 },
 }
 
 /** 合并用户配置与默认值（浅合并到 adapters 一层）。 */
@@ -72,6 +74,30 @@ export function apply(ctx, rawConfig) {
   const definitions = createToolDefinitions({ manager, adapters, config })
   for (const definition of definitions) {
     ctx.effect(() => ctx.tools.register(definition))
+  }
+
+  // 控制台：把「派了几单、跑到哪一步、验收过没过」变成看得见的一页。
+  // 启不来（端口被占满、页面文件缺失）绝不能把工具一起拖死 —— 只告警，其余照旧。
+  if (config.console?.enabled !== false) {
+    ctx.effect(() => {
+      let handle = null
+      let closed = false
+      startConsole({ manager, adapters, config })
+        .then((started) => {
+          if (!started) return
+          if (closed) { started.close?.(); return }
+          handle = started
+          ctx.logger?.info?.(`agent-commander 控制台：${started.url}`)
+        })
+        .catch((error) => {
+          ctx.logger?.warn?.(`agent-commander 控制台没起来（工具不受影响）：${error?.message ?? error}`)
+        })
+      return () => {
+        closed = true
+        handle?.close?.()
+        handle = null
+      }
+    })
   }
 
   ctx.logger?.info?.(`agent-commander 就绪：可指挥 ${adapters.ids().join('、')}`)

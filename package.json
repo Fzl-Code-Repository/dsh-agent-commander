@@ -1,7 +1,7 @@
 {
   "name": "dsh-agent-commander",
-  "version": "0.2.0",
-  "description": "指挥本机智能体（Qoder CN / WorkBuddy）干活的 DSH 插件：派活、看进度、验收一条龙。支持无头 CLI 与桌面 GUI 两条通道。",
+  "version": "0.3.0",
+  "description": "指挥本机智能体（Qoder CN / WorkBuddy）干活的 DSH 插件：派活、看进度、验收一条龙，自带网页控制台。支持无头 CLI 与桌面 GUI 两条通道。",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -41,7 +41,8 @@
   },
   "homepage": "https://github.com/Fzl-Code-Repository/dsh-agent-commander#readme",
   "scripts": {
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs",
+    "test:console": "node test/console.mjs"
   },
   "dsh": {
     "bundle": {
